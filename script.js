@@ -10,7 +10,7 @@ import {
     getDocs
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// ================= FIREBASE =================
+/* ================= FIREBASE ================= */
 const firebaseConfig = {
     apiKey: "AIzaSyBtOQPpVzbeuSizL-W75CiKzSe_g1tDYZ8",
     authDomain: "barbearia-elite-a502f.firebaseapp.com",
@@ -27,13 +27,13 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ================= ESTADO =================
+/* ================= ESTADO ================= */
 let currentUser = null;
 let selectedDate = "";
 let selectedTime = "";
 let selectedBarber = "";
 
-// ================= UI =================
+/* ================= UI ================= */
 const modal = document.getElementById('bookingModal');
 const modalBody = document.getElementById('modalBody');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -46,30 +46,34 @@ const dateList = document.getElementById('dateList');
 const timeGrid = document.getElementById('timeGrid');
 const bookingForm = document.getElementById('bookingForm');
 
-// ================= AUTH =================
+/* ================= AUTH ================= */
 const initAuth = async () => {
-    try {
-        await signInAnonymously(auth);
-    } catch (e) {
-        console.error(e);
+    try { 
+        await signInAnonymously(auth); 
+    } catch (error) {
+        console.log("Erro na autenticação:", error);
     }
 };
-
-onAuthStateChanged(auth, user => currentUser = user);
+onAuthStateChanged(auth, user => {
+    currentUser = user;
+    if (user) {
+        console.log("Usuário autenticado:", user.uid);
+    }
+});
 initAuth();
 
-// ================= DROPDOWN SERVIÇOS =================
-if (dropdownBtn && dropdownOptions) {
-    dropdownBtn.onclick = (e) => {
-        e.stopPropagation();
-        dropdownOptions.classList.toggle('show');
-    };
-}
+/* ================= DROPDOWN SERVIÇO ================= */
+dropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownOptions.classList.toggle('show');
+});
 
-window.addEventListener('click', (e) => {
-    if (!e.target.closest('#dropdownBtn')) {
-        dropdownOptions?.classList.remove('show');
-    }
+dropdownOptions.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
+
+document.addEventListener('click', () => {
+    dropdownOptions.classList.remove('show');
 });
 
 window.selectDropdownService = (name, price) => {
@@ -78,7 +82,7 @@ window.selectDropdownService = (name, price) => {
     dropdownOptions.classList.remove('show');
 };
 
-// ================= BARBEIRO =================
+/* ================= BARBEIRO ================= */
 window.selectBarber = (element, name) => {
     document.querySelectorAll('.barber-card').forEach(c => c.classList.remove('selected'));
     element.classList.add('selected');
@@ -87,7 +91,7 @@ window.selectBarber = (element, name) => {
     generateTimes();
 };
 
-// ================= MODAL =================
+/* ================= MODAL ================= */
 window.openBooking = () => {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -98,13 +102,13 @@ window.openBooking = () => {
 window.closeBooking = () => {
     modal.classList.remove('active');
     document.body.style.overflow = 'auto';
-    location.reload();
+    // REMOVIDO: location.reload(); - Isso causava o problema!
 };
 
-// ================= DATAS =================
+/* ================= DATAS ================= */
 function generateDates() {
     dateList.innerHTML = "";
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const days = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
     const today = new Date();
 
     for (let i = 0; i < 7; i++) {
@@ -129,7 +133,7 @@ function generateDates() {
             generateTimes();
         };
 
-        if (i === 0) {
+        if (i === 0 && !selectedDate) {
             chip.classList.add('selected');
             selectedDate = fullDateStr;
         }
@@ -138,46 +142,38 @@ function generateDates() {
     }
 }
 
-// ================= HORÁRIOS (COM BLOQUEIO) =================
+/* ================= HORÁRIOS ================= */
 async function getBookedTimes(date, barber) {
     if (!date || !barber) return [];
 
-    const bookingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
-    const q = query(
-        bookingsCol,
-        where("date", "==", date),
-        where("barber", "==", barber)
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data().time);
+    try {
+        const col = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+        const q = query(col, where("date","==",date), where("barber","==",barber));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => d.data().time);
+    } catch (error) {
+        console.error("Erro ao buscar horários:", error);
+        return [];
+    }
 }
 
 async function generateTimes() {
     timeGrid.innerHTML = "";
 
     if (!selectedDate || !selectedBarber) {
-        timeGrid.innerHTML = `<p class="text-xs text-gray-500 text-center col-span-3">
-            Selecione data e barbeiro
-        </p>`;
+        timeGrid.innerHTML = `<p class="text-xs text-gray-500 text-center">Selecione data e barbeiro</p>`;
         return;
     }
 
-    const times = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
-    const bookedTimes = await getBookedTimes(selectedDate, selectedBarber);
+    const times = ["09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00"];
+    const booked = await getBookedTimes(selectedDate, selectedBarber);
 
     times.forEach(time => {
         const chip = document.createElement('div');
-        const ocupado = bookedTimes.includes(time);
+        const ocupado = booked.includes(time);
 
-        chip.className = `
-            chip text-center py-2 rounded-lg text-sm border
-            ${ocupado ? 'opacity-40 cursor-not-allowed bg-black/30' : 'border-white/10'}
-        `;
-
-        chip.innerHTML = ocupado
-            ? `${time}<div class="text-[9px] text-red-400">Ocupado</div>`
-            : time;
+        chip.className = `chip text-center py-3 rounded-lg text-sm border ${ocupado ? 'opacity-40 cursor-not-allowed bg-black/30' : 'hover:border-gold'}`;
+        chip.innerHTML = ocupado ? `${time}<div class="text-[9px] text-red-400">Ocupado</div>` : time;
 
         if (!ocupado) {
             chip.onclick = () => {
@@ -191,33 +187,57 @@ async function generateTimes() {
     });
 }
 
-// ================= SUBMIT =================
-if (bookingForm) {
-    bookingForm.onsubmit = async e => {
-        e.preventDefault();
+/* ================= SUBMIT ================= */
+bookingForm.onsubmit = async (e) => {
+    e.preventDefault();
 
-        if (!inputService.value || !selectedBarber || !selectedTime) {
-            alert("Preencha todos os campos");
-            return;
-        }
+    if (!inputService.value || !selectedBarber || !selectedTime) {
+        alert("Preencha todos os campos");
+        return;
+    }
 
-        loadingOverlay.style.display = 'flex';
+    if (!currentUser) {
+        alert("Aguardando autenticação... Tente novamente.");
+        return;
+    }
 
-        const data = {
-            clientName: document.getElementById('inputName').value,
-            clientPhone: inputPhone.value,
-            service: inputService.value,
-            barber: selectedBarber,
-            date: selectedDate,
-            time: selectedTime,
-            createdAt: serverTimestamp(),
-            userId: currentUser.uid
-        };
+    loadingOverlay.style.display = 'flex';
 
-        const col = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
-        await addDoc(col, data);
-
-        alert("Agendamento confirmado!");
-        location.reload();
-    };
-}
+    try {
+        await addDoc(
+            collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
+            {
+                clientName: document.getElementById('inputName').value,
+                clientPhone: inputPhone.value,
+                service: inputService.value,
+                barber: selectedBarber,
+                date: selectedDate,
+                time: selectedTime,
+                createdAt: serverTimestamp(),
+                userId: currentUser.uid
+            }
+        );
+        
+        alert("✅ Agendamento confirmado!");
+        
+        // Limpa o formulário
+        bookingForm.reset();
+        selectedServiceText.innerText = "Escolha um serviço";
+        selectedBarber = "";
+        selectedDate = "";
+        selectedTime = "";
+        
+        // Remove seleções visuais
+        document.querySelectorAll('.barber-card.selected, .chip.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        
+        closeBooking();
+        
+    } catch (error) {
+        console.error("Erro ao agendar:", error);
+        alert("Erro ao realizar agendamento. Tente novamente.");
+    } finally {
+        loadingOverlay.style.display = 'none';
+    }
+};
