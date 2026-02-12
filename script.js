@@ -10,7 +10,7 @@ import {
     getDocs
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Configuração do Firebase
+// ================= FIREBASE =================
 const firebaseConfig = {
     apiKey: "AIzaSyBtOQPpVzbeuSizL-W75CiKzSe_g1tDYZ8",
     authDomain: "barbearia-elite-a502f.firebaseapp.com",
@@ -23,18 +23,17 @@ const firebaseConfig = {
 
 const appId = 'barber-elite-app';
 
-// Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Estado
+// ================= ESTADO =================
 let currentUser = null;
 let selectedDate = "";
 let selectedTime = "";
 let selectedBarber = "";
 
-// UI
+// ================= UI =================
 const modal = document.getElementById('bookingModal');
 const modalBody = document.getElementById('modalBody');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -47,41 +46,39 @@ const dateList = document.getElementById('dateList');
 const timeGrid = document.getElementById('timeGrid');
 const bookingForm = document.getElementById('bookingForm');
 
-// Auth
+// ================= AUTH =================
 const initAuth = async () => {
     try {
         await signInAnonymously(auth);
-    } catch (error) {
-        console.error(error);
+    } catch (e) {
+        console.error(e);
     }
 };
 
 onAuthStateChanged(auth, user => currentUser = user);
 initAuth();
 
-// 🔍 BUSCAR HORÁRIOS OCUPADOS
-async function getBookedTimes(date, barber) {
-    if (!date || !barber) return [];
-
-    const bookingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
-    const q = query(
-        bookingsCol,
-        where("date", "==", date),
-        where("barber", "==", barber)
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data().time);
+// ================= DROPDOWN SERVIÇOS =================
+if (dropdownBtn && dropdownOptions) {
+    dropdownBtn.onclick = (e) => {
+        e.stopPropagation();
+        dropdownOptions.classList.toggle('show');
+    };
 }
 
-// Serviço
+window.addEventListener('click', (e) => {
+    if (!e.target.closest('#dropdownBtn')) {
+        dropdownOptions?.classList.remove('show');
+    }
+});
+
 window.selectDropdownService = (name, price) => {
     selectedServiceText.innerText = `${name} - R$ ${price},00`;
     inputService.value = name;
     dropdownOptions.classList.remove('show');
 };
 
-// Barbeiro
+// ================= BARBEIRO =================
 window.selectBarber = (element, name) => {
     document.querySelectorAll('.barber-card').forEach(c => c.classList.remove('selected'));
     element.classList.add('selected');
@@ -90,7 +87,7 @@ window.selectBarber = (element, name) => {
     generateTimes();
 };
 
-// Abrir modal
+// ================= MODAL =================
 window.openBooking = () => {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -104,7 +101,7 @@ window.closeBooking = () => {
     location.reload();
 };
 
-// Datas
+// ================= DATAS =================
 function generateDates() {
     dateList.innerHTML = "";
     const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -115,8 +112,8 @@ function generateDates() {
         date.setDate(today.getDate() + i);
         if (date.getDay() === 0) continue;
 
-        const chip = document.createElement('div');
         const fullDateStr = date.toLocaleDateString('pt-BR');
+        const chip = document.createElement('div');
 
         chip.className = "chip min-w-[65px] flex flex-col items-center p-3 rounded-xl border border-white/10";
         chip.innerHTML = `
@@ -141,7 +138,21 @@ function generateDates() {
     }
 }
 
-// ⏰ HORÁRIOS COM BLOQUEIO
+// ================= HORÁRIOS (COM BLOQUEIO) =================
+async function getBookedTimes(date, barber) {
+    if (!date || !barber) return [];
+
+    const bookingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+    const q = query(
+        bookingsCol,
+        where("date", "==", date),
+        where("barber", "==", barber)
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data().time);
+}
+
 async function generateTimes() {
     timeGrid.innerHTML = "";
 
@@ -180,13 +191,13 @@ async function generateTimes() {
     });
 }
 
-// Submit
+// ================= SUBMIT =================
 if (bookingForm) {
     bookingForm.onsubmit = async e => {
         e.preventDefault();
 
-        if (!selectedBarber || !selectedTime) {
-            alert("Selecione barbeiro e horário");
+        if (!inputService.value || !selectedBarber || !selectedTime) {
+            alert("Preencha todos os campos");
             return;
         }
 
@@ -205,6 +216,7 @@ if (bookingForm) {
 
         const col = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
         await addDoc(col, data);
+
         alert("Agendamento confirmado!");
         location.reload();
     };
